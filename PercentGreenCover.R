@@ -9,6 +9,7 @@
 library(tidyr)
 library(sf)
 library(terra)
+library(pracma)
 library(ggplot2)
 
 ### set local data paths
@@ -67,13 +68,31 @@ ggplot(pix_val_long, aes(x = Value)) +
   theme_minimal()
 
 
+### Try to determine the min threshold assuming a binomial distribution of hue values 
+# create a density estimate of the hue distribution
+d <- density(pix_val$hue)
+
+# Find local maxima and minima
+peaks <- findpeaks(d$y)
+valleys <- findpeaks(-d$y)
+
+# Get the x-location of the minimum between the two largest peaks
+peak_pos <- sort(peaks[,2])       # index of the peaks
+valley_candidates <- valleys[,2]  # index of valleys
+
+# Filter valleys between peaks
+middle_valleys <- valley_candidates[valley_candidates > peak_pos[1] & valley_candidates < peak_pos[2]]
+
+# Extract valley position and value - This is the estimate of the minimum threshold - check with the value 
+# set below (i.e. min_hue)
+valley_x <- d$x[middle_valleys[1]]
+
 ### Threshold the 'hue' band. Hue values typically range from 0 to 1
 # Make a copy of the hue band
 hue_band <- hsv_ortho$hue      
 
-
 # Define the threshold range
-min_hue <- 0.2
+min_hue <- 0.16
 max_hue <- 0.5
 
 

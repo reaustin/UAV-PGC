@@ -12,7 +12,7 @@ values to identify the area of turgrass within plots (PGC)
 - install.packages(ggplot2)
 - install.packages(sf)
 - install.packages(terra)
-
+- install.packages("pracma")
 
 ## Required Inputs
 - UAV Image (geotiff)
