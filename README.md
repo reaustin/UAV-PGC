@@ -23,3 +23,4 @@ values to identify the area of turgrass within plots (PGC)
 
 ## user specified parameters
 - the threshold values for green turfgrass (assumed 0.2 to 0.5)
+
