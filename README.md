@@ -8,10 +8,10 @@ values to identify the area of turgrass within plots (PGC)
 ![image info](./resources/pgc.png)
 
 ## Required Packages
--install.packages(tidyr)
--install.packages(ggplot2)
--install.packages(sf)
--install.packages(terra)
+- install.packages(tidyr)
+- install.packages(ggplot2)
+- install.packages(sf)
+- install.packages(terra)
 
 
 ## Required Inputs
