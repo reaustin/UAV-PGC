@@ -11,11 +11,11 @@ library(sf)
 library(terra)
 library(ggplot2)
 
-#### set data paths
+### set local data paths
 plot_filepath = "./data/PlotBoundary.shp"
 orth_filepath = "./data/LW_07102025_RGB.tif"
 
-### read in the datasets
+### read in the plot boundaries and UAV ortho 
 plots <- vect(plot_filepath)
 ortho <- rast(orth_filepath)
 
@@ -27,13 +27,13 @@ print(ortho)
 plotRGB(ortho, r = 1, g = 2, b = 3, stretch = "lin", main = "Rob is Amazing")
 plot(plots, add = TRUE, border = "black", lwd = 2, col = NA)
 
-### Extract out just the plots
-## -> Cropping first reduces the processing area
+### Extract the plot areas of the imagery
+# -> Cropping before masking reduces the processing area
 crop_raster <- crop(ortho, plots)
 ortho_mask <- mask(crop_raster, plots)
 
 ### Plot to make sure it worked
-plotRGB(ortho_mask, r = 1, g = 2, b = 3, stretch = "lin", main = "Rob is Super Amazing")
+plotRGB(ortho_mask, r = 1, g = 2, b = 3, stretch = "lin", main = "This is Super Amazing")
 plot(plots, add = TRUE, border = "black", lwd = 2, col = NA)
 
 
@@ -47,22 +47,19 @@ plot(hsv_ortho$saturation, main = "HSV - Saturation Component", col = gray.color
 plot(hsv_ortho$value, main = "HSV - Value Component", col = gray.colors(100))
 par(mfrow = c(1, 1))
 
-### Get the pixel values to look at the histograms
+### Get the pixel values to examine at the histograms (remove na's)
 pix_val <- values(hsv_ortho, dataframe=TRUE)
 pix_val <- na.omit(pix_val)
 
-
-
-
-
+### Pivot the data to long for so we can plot using facet_wrap
 pix_val_long <- pix_val %>%
   pivot_longer(
-    cols = c(hue, saturation, value), # Specify the columns you want to pivot
-    names_to = "Variable",                 # Name of the new column to store the original column names
-    values_to = "Value"                    # Name of the new column to store the values
+    cols = c(hue, saturation, value), 
+    names_to = "Variable",                 
+    values_to = "Value"                    
   )
 
-
+### plot the distribution of pixel vales for each HSV band
 ggplot(pix_val_long, aes(x = Value)) + 
   geom_histogram(binwidth = 0.005, fill = "steelblue", color = "black") + 
   facet_wrap(~ Variable, ncol = 1) +
@@ -70,31 +67,37 @@ ggplot(pix_val_long, aes(x = Value)) +
   theme_minimal()
 
 
-
-
 ### Threshold the 'hue' band. Hue values typically range from 0 to 1
-hue_band <- hsv_ortho$hue      # Make a copy of the hue band
+# Make a copy of the hue band
+hue_band <- hsv_ortho$hue      
+
 
 # Define the threshold range
 min_hue <- 0.2
 max_hue <- 0.5
 
 
-# Create a new raster object for the thresholded hue
+### Select the threshold values  
+# Create a new raster from the hue values that will be used to store just the turfgrass pixels
 # and Set pixels outside the desired range to NA
 turf_binary <- hue_band
+
+### remove the values that are not turfgrass (assign them NA)
 turf_binary[hue_band < min_hue | hue_band > max_hue] <- NA
-#turf_binary[!is.na(turf_binary)] <- 1
 
+### do the same, but this time remove the turfgrass, keep the soil 
 soil_binary <- hue_band
-soil_binary[hue_band > min_hue & hue_band < max_hue] <- NA
+soil_binary[hue_band >= min_hue & hue_band <= max_hue] <- NA
 
 
-#plotRGB(ortho_mask, r = 1, g = 2, b = 3, stretch = "lin", main = "Rob is Super Amazing")
-par(mfrow = c(2, 1))
-plot(turf_binary, main = "HSV - Hue Component", col = hcl.colors(100, "viridis"))
-plot(soil_binary, main = "HSV - Hue Component", col = 'brown')
-par(mfrow = c(1, 1))
+
+### plot up the threshold turfgrass areas over the original RGB image
+zlim_vals <- quantile(values(turf_binary), probs = c(0.05, 0.95), na.rm = TRUE)
+plotRGB(ortho_mask, r = 1, g = 2, b = 3, stretch = "lin", main = "This is Super Amazing")
+plot(turf_binary, add=TRUE, zlim=zlim_vals, col = hcl.colors(100, "viridis"))
+plot(plots, add = TRUE, border = "black", lwd = 2, col = NA)
+#plot(soil_binary, add = TRUE, main = "HSV - Hue Component", col = 'brown')
+
 
 ### calculate the area withing each zone (i.e. plot) that is turfgrass 
 raster_info <- cellSize(turf_binary)
@@ -117,9 +120,13 @@ plots$area_m2 <- expanse(plots, unit = "m")
 plots$pgc = round(((plots$turf / plots$area_m2) * 100),0)
 
 
+## plot the PGC on the map
+text(plots, labels=plots$pgc, font=2, cex=0.7, col="white")
+
+
 ### write out the results
-writeRaster(turf_binary, "./data/out_ras.tif", filetype="GTiff", overwrite=TRUE)
-writeVector(plots, "./data/plot_pgc.shp", filetype = "ESRI Shapefile", overwrite = TRUE)
+writeRaster(turf_binary, "./data/turf_raster.tif", filetype="GTiff", overwrite=TRUE)
+writeVector(plots, "./data/plots_pgc.shp", filetype = "ESRI Shapefile", overwrite = TRUE)
 
 
 
